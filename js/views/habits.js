@@ -49,13 +49,12 @@
     statsRow.appendChild(Comp.statCard({ label: 'Compléted (total)', value: totalLogs }));
     root.appendChild(statsRow);
 
-    // 90-day heatmap global
-    const heatCard = U.el('div', { class: 'chart-container' });
-    heatCard.appendChild(U.el('h3', { text: 'Activité (90 derniers jours)' }));
+    // 90-day heatmap global (collapsible)
+    const heatAcc = Comp.accordion({ title: 'Activité (90 derniers jours)', icon: '🔥', open: false });
     const dateMap = {};
     logs.forEach(l => { dateMap[l.date] = (dateMap[l.date] || 0) + 1; });
-    heatCard.appendChild(Charts.heatmap({ data: dateMap, days: 91, color: '#10b981' }));
-    root.appendChild(heatCard);
+    heatAcc.body.appendChild(Charts.heatmap({ data: dateMap, days: 91, color: '#10b981' }));
+    root.appendChild(heatAcc.el);
 
     // List habits
     const list = U.el('div', { class: 'col gap-4' });

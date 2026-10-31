@@ -129,14 +129,14 @@
     }));
     root.appendChild(stats);
 
-    // Two columns: today habits + due tasks
+    // Two columns: today habits + due tasks (collapsible)
     const twoCol = U.el('div', { class: 'grid grid-2' });
 
     // Habits of today
-    const habitsCard = U.el('div', { class: 'card' });
-    habitsCard.appendChild(Comp.section('Habitudes du jour', U.el('button', { class: 'btn btn-sm btn-ghost', text: 'Voir tout', onclick: () => Router.go('habits') })));
+    const habAcc = Comp.accordion({ title: `Habitudes du jour (${habitsDone}/${habitsTotal})`, icon: '✅', open: false });
+    const habitsCard = habAcc.body;
     if (habits.length === 0) {
-      habitsCard.appendChild(Comp.emptyState({ title: 'Pas encore d\'habitude', text: 'Crée ta première habitude pour commencer.', action: 'Nouvelle habitude', onAction: () => Router.go('habits') }));
+      habitsCard.appendChild(Comp.emptyState({ title: 'Pas encore d\'habitude', text: 'Crée ta première habitude.', action: 'Nouvelle habitude', onAction: () => Router.go('habits') }));
     } else {
       habits.slice(0, 5).forEach(hab => {
         const done = todayLogs.some(l => l.habitId === hab.id);
@@ -163,14 +163,14 @@
         habitsCard.appendChild(row);
       });
     }
-    twoCol.appendChild(habitsCard);
+    twoCol.appendChild(habAcc.el);
 
     // Due tasks
-    const tasksCard = U.el('div', { class: 'card' });
-    tasksCard.appendChild(Comp.section('Tâches à faire', U.el('button', { class: 'btn btn-sm btn-ghost', text: 'Voir tout', onclick: () => Router.go('tasks') })));
+    const taskAcc = Comp.accordion({ title: `Tâches à faire (${openTasks.length})`, icon: '📋', open: false });
+    const tasksCard = taskAcc.body;
     const shown = U.sortBy(openTasks, t => t.dueDate || '9999').slice(0, 5);
     if (shown.length === 0) {
-      tasksCard.appendChild(Comp.emptyState({ title: 'Tout est fait', text: 'Rien de prévu. Ajoute une tâche ou souffle un peu.' }));
+      tasksCard.appendChild(Comp.emptyState({ title: 'Tout est fait', text: 'Rien de prévu.' }));
     } else {
       shown.forEach(t => {
         const overdue = t.dueDate && t.dueDate < today;
@@ -183,14 +183,14 @@
         tasksCard.appendChild(row);
       });
     }
-    twoCol.appendChild(tasksCard);
+    twoCol.appendChild(taskAcc.el);
 
     root.appendChild(twoCol);
 
     // Goals snapshot
     if (activeGoals.length) {
-      const goalsCard = U.el('div', { class: 'card' });
-      goalsCard.appendChild(Comp.section('Objectifs en cours', U.el('button', { class: 'btn btn-sm btn-ghost', text: 'Voir tout', onclick: () => Router.go('goals') })));
+      const goalsAcc = Comp.accordion({ title: `Objectifs en cours (${activeGoals.length})`, icon: '🎯', open: false });
+      const goalsCard = goalsAcc.body;
       activeGoals.forEach(g => {
         const krDone = (g.keyResults || []).filter(k => k.done).length;
         const krTotal = (g.keyResults || []).length;
@@ -205,13 +205,13 @@
         `;
         goalsCard.appendChild(row);
       });
-      root.appendChild(goalsCard);
+      root.appendChild(goalsAcc.el);
     }
 
     // Weekly mood chart
     if (journal.length) {
-      const chartCard = U.el('div', { class: 'chart-container' });
-      chartCard.appendChild(U.el('h3', { text: 'Humeur sur 14 jours' }));
+      const chartAcc = Comp.accordion({ title: 'Humeur sur 14 jours', icon: '😊', open: false });
+      const chartCard = chartAcc.body;
       const dates = [];
       const vals = [];
       const labels = [];
@@ -224,7 +224,7 @@
         labels.push(d.getDate() + '/' + (d.getMonth() + 1));
       }
       chartCard.appendChild(Charts.line({ data: vals, labels, color: '#ec4899', yFormat: v => v.toFixed(1) }));
-      root.appendChild(chartCard);
+      root.appendChild(chartAcc.el);
     }
   };
 

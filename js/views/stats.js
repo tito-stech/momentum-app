@@ -154,10 +154,10 @@
       return;
     }
 
-    // Render accordion grid
+    // Render accordion grid (all collapsed by default)
     const accWrap = U.el('div', { class: 'col gap-2' });
-    sections.forEach((s, idx) => {
-      const acc = Comp.accordion({ title: s.title, icon: s.icon, open: idx === 0 });
+    sections.forEach((s) => {
+      const acc = Comp.accordion({ title: s.title, icon: s.icon, open: false });
       acc.body.appendChild(s.build());
       accWrap.appendChild(acc.el);
     });
