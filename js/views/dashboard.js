@@ -90,9 +90,11 @@
     actions.forEach(a => {
       const btn = U.el('button', { class: 'quick-action', onclick: () => Router.go(a.route) });
       btn.innerHTML = `
-        <div class="quick-action-icon" style="background:${a.color}20;color:${a.color};font-size:18px;">${a.icon}</div>
-        <div class="quick-action-title">${a.title}</div>
-        <div class="quick-action-sub">${a.sub}</div>
+        <div class="quick-action-icon" style="background:${a.color}20;color:${a.color};font-size:16px;">${a.icon}</div>
+        <div class="quick-action-main">
+          <div class="quick-action-title">${a.title}</div>
+          <div class="quick-action-sub">${a.sub}</div>
+        </div>
       `;
       quick.appendChild(btn);
     });

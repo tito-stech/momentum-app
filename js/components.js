@@ -134,15 +134,37 @@ const Comp = (() => {
 
   function segmented({ options, value, onChange }) {
     const wrap = U.el('div', { class: 'segments' });
+    let current = value;
     options.forEach(o => {
-      wrap.appendChild(U.el('button', {
-        class: 'segment' + (o.value === value ? ' active' : ''),
+      const b = U.el('button', {
+        class: 'segment' + (o.value === current ? ' active' : ''),
         type: 'button',
         text: o.label,
-        onclick: () => onChange(o.value)
-      }));
+        onclick: () => {
+          current = o.value;
+          U.$$('.segment', wrap).forEach(s => s.classList.remove('active'));
+          b.classList.add('active');
+          onChange(o.value);
+        }
+      });
+      wrap.appendChild(b);
     });
     return wrap;
+  }
+
+  function accordion({ title, open = false, icon }) {
+    const el = U.el('div', { class: 'accordion' + (open ? ' open' : '') });
+    const head = U.el('button', { type: 'button', class: 'accordion-head' });
+    head.innerHTML = `
+      ${icon ? `<span class="accordion-icon">${icon}</span>` : ''}
+      <span class="accordion-title">${U.escapeHtml(title)}</span>
+      <svg class="accordion-chev" viewBox="0 0 24 24" width="18" height="18"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    `;
+    const body = U.el('div', { class: 'accordion-body' });
+    el.appendChild(head);
+    el.appendChild(body);
+    head.onclick = () => el.classList.toggle('open');
+    return { el, body, head };
   }
 
   function progressBar(pct, color) {
@@ -153,5 +175,5 @@ const Comp = (() => {
     return wrap;
   }
 
-  return { statCard, emptyState, field, formValues, formModal, section, chips, segmented, progressBar };
+  return { statCard, emptyState, field, formValues, formModal, section, chips, segmented, progressBar, accordion };
 })();

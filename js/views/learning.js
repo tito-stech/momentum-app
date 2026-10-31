@@ -5,11 +5,14 @@
 (function () {
   if (!window.Views) window.Views = {};
 
-  // Pomodoro state (persist across view re-renders)
   const Pomo = window._pomo = window._pomo || {
     running: false, type: 'focus', remaining: 25 * 60 * 1000, duration: 25 * 60 * 1000,
-    startTime: null, timerId: null, project: '', completedToday: 0
+    startTime: null, timerId: null, project: ''
   };
+
+  function clearPomoTimer() {
+    if (Pomo.timerId) { clearInterval(Pomo.timerId); Pomo.timerId = null; }
+  }
 
   window.Views.learning = async function (root) {
 
@@ -23,136 +26,122 @@
 
     let tab = 'pomodoro';
     const tabs = U.el('div', { class: 'tabs' });
-    [['pomodoro', 'Focus'], ['books', 'Livres'], ['skills', 'Compétences']].forEach(([t, label]) => {
-      tabs.appendChild(U.el('a', { class: 'tab-link' + (t === tab ? ' active' : ''), text: label, onclick: () => { tab = t; render(); } }));
+    [['pomodoro', 'Focus'], ['books', 'Livres'], ['skills', 'Comp.']].forEach(([t, label]) => {
+      tabs.appendChild(U.el('a', { class: 'tab-link' + (t === tab ? ' active' : ''), text: label, onclick: () => { tab = t; renderTab(); } }));
     });
     root.appendChild(tabs);
 
     const content = U.el('div');
     root.appendChild(content);
-    render();
+    renderTab();
 
-    function render() {
+    function renderTab() {
       content.innerHTML = '';
       U.$$('.tab-link', tabs).forEach((l, i) => l.classList.toggle('active', ['pomodoro', 'books', 'skills'][i] === tab));
-      if (tab === 'pomodoro') renderPomodoro();
+      if (tab === 'pomodoro') renderPomodoroTab();
       else if (tab === 'books') renderBooks();
       else renderSkills();
     }
 
-    // ---- POMODORO ----
-    function renderPomodoro() {
+    // ---- POMODORO (built once, updated in-place) ----
+    function renderPomodoroTab() {
       const today = U.iso(U.today());
       const todayPomos = pomos.filter(p => p.date === today && p.type === 'focus');
       const todayFocusMin = U.sum(todayPomos.map(p => p.duration / 60));
-      const totalPomos = pomos.filter(p => p.type === 'focus').length;
 
       const stats = U.el('div', { class: 'grid grid-auto-sm' });
-      stats.appendChild(Comp.statCard({ label: 'Aujourd\'hui', value: todayPomos.length, unit: 'pomos' }));
-      stats.appendChild(Comp.statCard({ label: 'Focus du jour', value: Math.round(todayFocusMin), unit: 'min' }));
-      stats.appendChild(Comp.statCard({ label: 'Total', value: totalPomos }));
+      stats.appendChild(Comp.statCard({ label: 'Pomos jour', value: todayPomos.length }));
+      stats.appendChild(Comp.statCard({ label: 'Focus jour', value: Math.round(todayFocusMin), unit: 'min' }));
+      stats.appendChild(Comp.statCard({ label: 'Total', value: pomos.filter(p => p.type === 'focus').length }));
       content.appendChild(stats);
 
-      // Timer card
-      const timer = U.el('div', { class: 'pomodoro' + (Pomo.running ? ' running' : '') });
-      const typeLabel = Pomo.type === 'focus' ? 'Focus' : Pomo.type === 'short' ? 'Pause courte' : 'Pause longue';
+      // Timer card built ONCE
+      const timer = U.el('div', { class: 'pomodoro' });
+      timer.id = 'pomo-card';
       timer.innerHTML = `
-        <div class="pomo-label">${typeLabel}</div>
-        <div class="pomo-time" id="pomo-time">${U.fmtTime(Pomo.remaining)}</div>
-        <div class="row" style="justify-content:center;gap:8px;">
-          <button class="segment ${Pomo.type === 'focus' ? 'active' : ''}" data-type="focus">25 min</button>
-          <button class="segment ${Pomo.type === 'short' ? 'active' : ''}" data-type="short">5 min</button>
-          <button class="segment ${Pomo.type === 'long' ? 'active' : ''}" data-type="long">15 min</button>
+        <div class="pomo-label" id="pomo-type-label">Focus</div>
+        <div class="pomo-time" id="pomo-time">25:00</div>
+        <div class="row" style="justify-content:center;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="segment" data-type="focus">25 min</button>
+          <button type="button" class="segment" data-type="short">5 min</button>
+          <button type="button" class="segment" data-type="long">15 min</button>
         </div>
-        <div class="field mt-4" style="max-width:300px;margin:16px auto;">
-          <input class="input" placeholder="Projet / sujet (optionnel)" value="${U.escapeHtml(Pomo.project || '')}" id="pomo-project">
+        <div class="field" style="max-width:280px;margin:12px auto 0;">
+          <input class="input" placeholder="Projet / sujet (optionnel)" id="pomo-project">
         </div>
         <div class="pomo-actions">
-          ${Pomo.running
-            ? '<button class="btn btn-lg" id="pomo-pause">⏸ Pause</button>'
-            : '<button class="btn btn-primary btn-lg" id="pomo-start">▶ Démarrer</button>'}
-          <button class="btn btn-lg" id="pomo-reset">⟲ Réinitialiser</button>
+          <button type="button" class="btn btn-primary btn-lg" id="pomo-toggle">▶ Démarrer</button>
+          <button type="button" class="btn btn-lg" id="pomo-reset">⟲ Reset</button>
         </div>
       `;
       content.appendChild(timer);
 
-      // Type buttons
-      U.$$('.segment[data-type]', timer).forEach(b => b.onclick = () => {
-        if (Pomo.running) return;
-        Pomo.type = b.dataset.type;
-        Pomo.duration = (b.dataset.type === 'focus' ? 25 : b.dataset.type === 'short' ? 5 : 15) * 60 * 1000;
-        Pomo.remaining = Pomo.duration;
-        renderPomodoro();
-      });
+      const timeEl = U.$('#pomo-time', timer);
+      const typeLabelEl = U.$('#pomo-type-label', timer);
+      const projectInput = U.$('#pomo-project', timer);
+      const toggleBtn = U.$('#pomo-toggle', timer);
+      const resetBtn = U.$('#pomo-reset', timer);
 
-      U.$('#pomo-start', timer)?.addEventListener('click', () => {
-        Pomo.running = true;
-        Pomo.startTime = Date.now() - (Pomo.duration - Pomo.remaining);
-        Pomo.project = U.$('#pomo-project', timer).value;
-        tick();
-        renderPomodoro();
-      });
-      U.$('#pomo-pause', timer)?.addEventListener('click', () => {
-        Pomo.running = false;
-        Pomo.remaining = Math.max(0, Pomo.duration - (Date.now() - Pomo.startTime));
-        clearInterval(Pomo.timerId);
-        renderPomodoro();
-      });
-      U.$('#pomo-reset', timer)?.addEventListener('click', () => {
-        Pomo.running = false;
-        clearInterval(Pomo.timerId);
-        Pomo.remaining = Pomo.duration;
-        renderPomodoro();
-      });
+      projectInput.value = Pomo.project || '';
 
-      // Projects breakdown
-      if (pomos.length) {
-        const byProject = {};
-        pomos.filter(p => p.type === 'focus' && p.project).forEach(p => {
-          byProject[p.project] = (byProject[p.project] || 0) + p.duration;
-        });
-        const items = Object.entries(byProject).sort((a, b) => b[1] - a[1]).slice(0, 8);
-        if (items.length) {
-          const card = U.el('div', { class: 'card' });
-          card.appendChild(Comp.section('Temps par projet'));
-          card.appendChild(Charts.hBarList({
-            items: items.map(([p, s]) => ({ label: p, value: s, display: Math.round(s / 60000) + ' min' })),
-            color: '#0ea5e9'
-          }));
-          content.appendChild(card);
-        }
+      function syncUI() {
+        timeEl.textContent = U.fmtTime(Pomo.remaining);
+        typeLabelEl.textContent = Pomo.type === 'focus' ? 'Focus' : Pomo.type === 'short' ? 'Pause courte' : 'Pause longue';
+        timer.classList.toggle('running', Pomo.running);
+        toggleBtn.innerHTML = Pomo.running ? '⏸ Pause' : '▶ Démarrer';
+        toggleBtn.classList.toggle('btn-primary', !Pomo.running);
+        U.$$('.segment[data-type]', timer).forEach(b => b.classList.toggle('active', b.dataset.type === Pomo.type));
       }
+      syncUI();
 
-      // Focus 14d chart
-      if (pomos.length > 1) {
-        const vals = [], labels = [];
-        for (let i = 13; i >= 0; i--) {
-          const d = U.addDays(U.today(), -i);
-          const iso = U.iso(d);
-          const dayPomos = pomos.filter(p => p.date === iso && p.type === 'focus');
-          vals.push(Math.round(U.sum(dayPomos.map(p => p.duration / 60000))));
-          labels.push(d.getDate() + '/' + (d.getMonth() + 1));
+      U.$$('.segment[data-type]', timer).forEach(b => {
+        b.onclick = () => {
+          if (Pomo.running) return U.toast('Mets en pause avant de changer');
+          Pomo.type = b.dataset.type;
+          Pomo.duration = (b.dataset.type === 'focus' ? 25 : b.dataset.type === 'short' ? 5 : 15) * 60 * 1000;
+          Pomo.remaining = Pomo.duration;
+          syncUI();
+        };
+      });
+
+      toggleBtn.onclick = () => {
+        if (Pomo.running) {
+          Pomo.running = false;
+          Pomo.remaining = Math.max(0, Pomo.duration - (Date.now() - Pomo.startTime));
+          clearPomoTimer();
+        } else {
+          Pomo.running = true;
+          Pomo.startTime = Date.now() - (Pomo.duration - Pomo.remaining);
+          Pomo.project = projectInput.value;
+          startTick();
         }
-        const chart = U.el('div', { class: 'chart-container' });
-        chart.appendChild(U.el('h3', { text: 'Focus (14 jours, en minutes)' }));
-        chart.appendChild(Charts.bar({ data: vals, labels, color: '#0ea5e9' }));
-        content.appendChild(chart);
-      }
+        syncUI();
+      };
 
-      function tick() {
-        clearInterval(Pomo.timerId);
+      resetBtn.onclick = () => {
+        Pomo.running = false;
+        clearPomoTimer();
+        Pomo.remaining = Pomo.duration;
+        syncUI();
+      };
+
+      function startTick() {
+        clearPomoTimer();
         Pomo.timerId = setInterval(() => {
           if (!Pomo.running) return;
           const rem = Math.max(0, Pomo.duration - (Date.now() - Pomo.startTime));
           Pomo.remaining = rem;
-          const timeEl = U.$('#pomo-time');
-          if (timeEl) timeEl.textContent = U.fmtTime(rem);
+          const live = document.getElementById('pomo-time');
+          if (live) live.textContent = U.fmtTime(rem);
           if (rem <= 0) finish();
         }, 500);
       }
 
+      // Resume ticking if timer already running when we land here
+      if (Pomo.running) startTick();
+
       async function finish() {
-        clearInterval(Pomo.timerId);
+        clearPomoTimer();
         Pomo.running = false;
         await DB.put('pomodoroSessions', {
           type: Pomo.type,
@@ -166,9 +155,41 @@
         Pomo.remaining = Pomo.duration;
         if (location.hash.includes('learning')) Router.render();
       }
+
+      // Projects breakdown
+      if (pomos.length) {
+        const byProject = {};
+        pomos.filter(p => p.type === 'focus' && p.project).forEach(p => {
+          byProject[p.project] = (byProject[p.project] || 0) + p.duration;
+        });
+        const items = Object.entries(byProject).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        if (items.length) {
+          const card = U.el('div', { class: 'card' });
+          card.appendChild(Comp.section('Temps par projet'));
+          card.appendChild(Charts.hBarList({
+            items: items.map(([p, s]) => ({ label: p, value: s, display: Math.round(s / 60000) + ' min' })),
+            color: '#0ea5e9'
+          }));
+          content.appendChild(card);
+        }
+      }
+
+      // Focus 14d chart (collapsible)
+      if (pomos.length > 1) {
+        const vals = [], labels = [];
+        for (let i = 13; i >= 0; i--) {
+          const d = U.addDays(U.today(), -i);
+          const iso = U.iso(d);
+          const dayPomos = pomos.filter(p => p.date === iso && p.type === 'focus');
+          vals.push(Math.round(U.sum(dayPomos.map(p => p.duration / 60000))));
+          labels.push(d.getDate() + '/' + (d.getMonth() + 1));
+        }
+        const acc = Comp.accordion({ title: 'Focus 14 jours (minutes)', open: false });
+        acc.body.appendChild(Charts.bar({ data: vals, labels, color: '#0ea5e9' }));
+        content.appendChild(acc.el);
+      }
     }
 
-    // Beep via Web Audio (no file needed)
     function beep() {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -190,14 +211,13 @@
 
       const stats = U.el('div', { class: 'grid grid-auto-sm' });
       stats.appendChild(Comp.statCard({ label: 'En cours', value: reading.length }));
-      stats.appendChild(Comp.statCard({ label: 'Terminés', value: read.length }));
+      stats.appendChild(Comp.statCard({ label: 'Lus', value: read.length }));
       stats.appendChild(Comp.statCard({ label: 'À lire', value: wishlist.length }));
-      stats.appendChild(Comp.statCard({ label: 'Pages lues (année)', value: U.sum(read.filter(b => b.finishedAt && new Date(b.finishedAt).getFullYear() === new Date().getFullYear()).map(b => b.pages || 0)) }));
       content.appendChild(stats);
 
       content.appendChild(U.el('button', { class: 'btn btn-primary full', text: '+ Nouveau livre', onclick: () => openBookForm() }));
 
-      [['En cours', reading], ['À lire', wishlist], ['Terminés', read]].forEach(([title, list]) => {
+      [['En cours', reading], ['À lire', wishlist], ['Lus', read]].forEach(([title, list]) => {
         if (!list.length) return;
         const card = U.el('div', { class: 'card' });
         card.appendChild(Comp.section(title + ` (${list.length})`));
@@ -257,9 +277,8 @@
     // ---- SKILLS ----
     function renderSkills() {
       const stats = U.el('div', { class: 'grid grid-auto-sm' });
-      const avgLevel = skills.length ? U.avg(skills.map(s => s.level || 0)).toFixed(1) : '-';
       stats.appendChild(Comp.statCard({ label: 'Compétences', value: skills.length }));
-      stats.appendChild(Comp.statCard({ label: 'Niveau moyen', value: avgLevel, unit: '/5' }));
+      stats.appendChild(Comp.statCard({ label: 'Niveau moyen', value: skills.length ? U.avg(skills.map(s => s.level || 0)).toFixed(1) : '-', unit: '/5' }));
       content.appendChild(stats);
 
       content.appendChild(U.el('button', { class: 'btn btn-primary full', text: '+ Nouvelle compétence', onclick: () => openSkillForm() }));
@@ -286,11 +305,11 @@
 
     function openSkillForm(existing) {
       Comp.formModal({
-        title: existing ? 'Modifier compétence' : 'Nouvelle compétence',
+        title: existing ? 'Modifier' : 'Nouvelle compétence',
         fields: [
-          { name: 'name', label: 'Compétence', required: true, placeholder: 'JavaScript, Guitare, Dessin...' },
+          { name: 'name', label: 'Compétence', required: true, placeholder: 'JS, Guitare, Dessin...' },
           { name: 'level', label: 'Niveau (0-5)', type: 'number' },
-          { name: 'notes', label: 'Notes / objectif', type: 'textarea', rows: 3 }
+          { name: 'notes', label: 'Notes', type: 'textarea', rows: 3 }
         ],
         values: existing || { level: 1 },
         extraContent: existing ? U.el('button', { type: 'button', class: 'btn btn-danger', text: 'Supprimer', onclick: async () => {
