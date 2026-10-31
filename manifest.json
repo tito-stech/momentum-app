@@ -1,0 +1,22 @@
+{
+  "name": "Momentum - Suivi personnel",
+  "short_name": "Momentum",
+  "description": "App de developpement personnel complete, 100% locale, zero API",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f6f7fb",
+  "theme_color": "#f6f7fb",
+  "lang": "fr",
+  "dir": "ltr",
+  "categories": ["productivity", "lifestyle", "health"],
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
