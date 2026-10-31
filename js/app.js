@@ -55,6 +55,9 @@ function showGate() {
 
 (async function () {
 
+  // ---- Charger les clés d'activation (JSON distant + cache) ----
+  window._accessKeys = await loadAccessKeys();
+
   // ---- Vérification clé d'activation ----
   const stored = readStoredKey();
   if (!stored || !isValidKey(stored)) {

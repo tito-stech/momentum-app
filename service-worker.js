@@ -1,4 +1,4 @@
-const CACHE = 'momentum-v4';
+const CACHE = 'momentum-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -41,6 +41,23 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+
+  // access-keys.json : TOUJOURS network-first pour que les revoquages soient immediats
+  if (url.pathname.endsWith('/access-keys.json')) {
+    e.respondWith(
+      fetch(e.request).then(resp => {
+        if (resp && resp.ok) {
+          const copy = resp.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy));
+        }
+        return resp;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Reste : cache-first
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
