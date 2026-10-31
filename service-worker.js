@@ -1,4 +1,4 @@
-const CACHE = 'momentum-v3';
+const CACHE = 'momentum-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS = [
   './css/components.css',
   './css/views.css',
   './css/animations.css',
+  './js/access-keys.js',
   './js/utils.js',
   './js/db.js',
   './js/charts.js',

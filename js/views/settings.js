@@ -15,6 +15,26 @@
     header.appendChild(U.el('h2', { text: 'Paramètres' }));
     root.appendChild(header);
 
+    // Accès
+    const accessCard = U.el('div', { class: 'card' });
+    accessCard.appendChild(Comp.section('Mon accès'));
+    const owner = window.Momentum?.getCurrentOwner() || '-';
+    const currentKey = window.Momentum?.getCurrentKey() || '';
+    const masked = currentKey ? currentKey.slice(0, 3) + '•'.repeat(Math.max(0, currentKey.length - 6)) + currentKey.slice(-3) : '-';
+    accessCard.appendChild(U.el('div', { class: 'setting-row', html: `
+      <div class="setting-main">
+        <div class="setting-label">Clé active</div>
+        <div class="setting-desc"><span class="font-mono">${masked}</span> · propriétaire : ${U.escapeHtml(owner)}</div>
+      </div>
+    `}));
+    const logoutBtn = U.el('button', { class: 'btn btn-danger', text: 'Me déconnecter', onclick: async () => {
+      if (await U.confirm('Te déconnecter ? Tes données locales resteront, mais tu devras ressaisir ta clé pour revenir.', { danger: true, confirmText: 'Déconnexion' })) {
+        window.Momentum.logout();
+      }
+    } });
+    accessCard.appendChild(U.el('div', { class: 'row mt-4' }, [logoutBtn]));
+    root.appendChild(accessCard);
+
     // Profil
     const profileCard = U.el('div', { class: 'card' });
     profileCard.appendChild(Comp.section('Profil'));

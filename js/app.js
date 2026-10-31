@@ -4,7 +4,65 @@
 
 const Views = window.Views = window.Views || {};
 
+const KEY_STORAGE = 'momentum.accessKey';
+
+function readStoredKey() {
+  try { return localStorage.getItem(KEY_STORAGE) || null; } catch { return null; }
+}
+function storeKey(k) {
+  try { localStorage.setItem(KEY_STORAGE, k); } catch {}
+}
+function clearStoredKey() {
+  try { localStorage.removeItem(KEY_STORAGE); } catch {}
+}
+window.Momentum = {
+  getCurrentKey: readStoredKey,
+  getCurrentOwner: () => {
+    const k = readStoredKey();
+    return k && typeof getKeyOwner === 'function' ? getKeyOwner(k) : null;
+  },
+  logout: () => {
+    clearStoredKey();
+    location.reload();
+  }
+};
+
+function showGate() {
+  const gate = document.getElementById('gate');
+  if (!gate) return;
+  gate.classList.remove('hidden');
+  const splash = document.getElementById('splash');
+  if (splash) splash.remove();
+  const input = document.getElementById('gate-input');
+  const err = document.getElementById('gate-error');
+  const form = document.getElementById('gate-form');
+  setTimeout(() => input?.focus(), 100);
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const v = (input.value || '').trim();
+    if (isValidKey(v)) {
+      storeKey(v);
+      gate.classList.add('hidden');
+      // relancer tout le flow
+      location.reload();
+    } else {
+      err.classList.remove('hidden');
+      input.classList.add('shake');
+      setTimeout(() => input.classList.remove('shake'), 500);
+    }
+  };
+}
+
 (async function () {
+
+  // ---- Vérification clé d'activation ----
+  const stored = readStoredKey();
+  if (!stored || !isValidKey(stored)) {
+    // Pas de clé valide → afficher le gate et stopper le boot
+    if (stored) clearStoredKey();
+    showGate();
+    return;
+  }
 
   // ---- Theme ----
   async function applyTheme() {
